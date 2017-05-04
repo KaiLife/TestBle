@@ -100,6 +100,7 @@ public class BleManager implements LeScanCallback {
     }
 
     public void stopLeScan() {
+        mScanning = false;
         mHandler.removeCallbacks(scanRunnable);
         if (mBluetoothAdapter != null) {
             mBluetoothAdapter.stopLeScan(this);
