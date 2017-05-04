@@ -1,14 +1,20 @@
 package com.geely.dilan.testble.ble;
 
 import android.annotation.TargetApi;
+import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAdapter.LeScanCallback;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Handler;
+import android.os.Message;
+import android.support.annotation.NonNull;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -29,21 +35,35 @@ public class BleManager implements LeScanCallback {
      */
     private BluetoothAdapter mBluetoothAdapter;
     private OnIBeaconListener iBeaconListener;
-    private Context context;
+    private Activity mActivity;
     private final Handler mHandler;
     private boolean mScanning;
     private int duration;
     private List<IBeacon> iBeacons = new ArrayList<>();
     private Runnable scanRunnable;
 
-    public BleManager(Context context, OnIBeaconListener onIBeaconListener) {
-        this.context = context;
+    public BleManager(@NonNull Activity activity, OnIBeaconListener onIBeaconListener) {
+        mActivity = activity;
         // 获取BLE管理器
-        BluetoothManager bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothManager bluetoothManager = (BluetoothManager) activity.getSystemService(Context.BLUETOOTH_SERVICE);
         // 获取搜索BLE终端
         mBluetoothAdapter = bluetoothManager.getAdapter();
 
-        mHandler = new Handler();
+        mHandler = new Handler() {
+            @Override
+            public void handleMessage(Message msg) {
+                switch (msg.what) {
+                    case 0:
+                        startLeScan(duration);
+                        unregisterBluetooth();
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+        };
+
         iBeaconListener = onIBeaconListener;
         scanRunnable = new Runnable() {
             @Override
@@ -63,6 +83,35 @@ public class BleManager implements LeScanCallback {
         };
     }
 
+    public void registerBluetooth() {
+        Log.d(TAG, "~ registerBluetooth");
+        mActivity.registerReceiver(mReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
+    }
+
+    private void unregisterBluetooth() {
+        Log.d(TAG, "~ unregisterBluetooth");
+        try {
+            mActivity.unregisterReceiver(mReceiver);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 监听蓝牙状态
+     */
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent != null) {
+                if (BluetoothAdapter.STATE_ON == intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
+                        BluetoothAdapter.ERROR)) {
+                    mHandler.sendEmptyMessageDelayed(0, 200);
+                }
+            }
+        }
+    };
+
     public void startLeScan(final int seconds) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2 || !isBluetoothLeSupported()) {
             if (iBeaconListener != null) {
@@ -71,6 +120,7 @@ public class BleManager implements LeScanCallback {
             return;
         }
 
+        duration = seconds;
         // 蓝牙未开启
         if (isBluetoothEnabled()) {
             if (mScanning) {
@@ -82,20 +132,26 @@ public class BleManager implements LeScanCallback {
                 iBeacons.clear();
                 mHandler.postDelayed(scanRunnable, seconds * 1000);
             }
-            duration = seconds;
             mScanning = true;
-            mBluetoothAdapter.startLeScan(this);
+            try {
+                mBluetoothAdapter.startLeScan(this);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         } else {
 //            if (iBeaconListener != null) {
 //                iBeaconListener.onError("蓝牙未开启");
 //            }
+
             openBluetooth();
-            mHandler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    startLeScan(seconds);
-                }
-            }, 2000);
+            registerBluetooth();
+
+//            mHandler.postDelayed(new Runnable() {
+//                @Override
+//                public void run() {
+//                    startLeScan(seconds);
+//                }
+//            }, 2000);
         }
     }
 
@@ -121,7 +177,7 @@ public class BleManager implements LeScanCallback {
     }
 
     private boolean isBluetoothLeSupported() {
-        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE);
+        return mActivity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE);
     }
 
     private void openBluetooth() {
