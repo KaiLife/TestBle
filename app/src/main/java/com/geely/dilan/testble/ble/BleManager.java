@@ -52,15 +52,8 @@ public class BleManager implements LeScanCallback {
         mHandler = new Handler() {
             @Override
             public void handleMessage(Message msg) {
-                switch (msg.what) {
-                    case 0:
-                        startLeScan(duration);
-                        unregisterBluetooth();
-                        break;
-
-                    default:
-                        break;
-                }
+                startLeScan(duration);
+                unregisterBluetooth();
             }
         };
 
@@ -106,7 +99,7 @@ public class BleManager implements LeScanCallback {
             if (intent != null) {
                 if (BluetoothAdapter.STATE_ON == intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
                         BluetoothAdapter.ERROR)) {
-                    mHandler.sendEmptyMessageDelayed(0, 200);
+                    mHandler.sendEmptyMessageDelayed(0, 100);
                 }
             }
         }
@@ -121,7 +114,6 @@ public class BleManager implements LeScanCallback {
         }
 
         duration = seconds;
-        // 蓝牙未开启
         if (isBluetoothEnabled()) {
             if (mScanning) {
                 return;
@@ -145,13 +137,6 @@ public class BleManager implements LeScanCallback {
 
             openBluetooth();
             registerBluetooth();
-
-//            mHandler.postDelayed(new Runnable() {
-//                @Override
-//                public void run() {
-//                    startLeScan(seconds);
-//                }
-//            }, 2000);
         }
     }
 
