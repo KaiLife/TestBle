@@ -76,7 +76,7 @@ public class BleManager implements LeScanCallback {
         };
     }
 
-    public void registerBluetooth() {
+    private void registerBluetooth() {
         Log.d(TAG, "~ registerBluetooth");
         mActivity.registerReceiver(mReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
     }
